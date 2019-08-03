@@ -4,6 +4,7 @@ import com.github.rjeschke.txtmark.Processor
 import io.vertx.core.AbstractVerticle
 import io.vertx.core.Future
 import io.vertx.core.Promise
+import io.vertx.core.json.JsonArray
 import io.vertx.core.json.JsonObject
 import io.vertx.core.logging.LoggerFactory
 import io.vertx.ext.jdbc.JDBCClient
@@ -11,15 +12,10 @@ import io.vertx.ext.web.Router
 import io.vertx.ext.web.RoutingContext
 import io.vertx.ext.web.handler.BodyHandler
 import io.vertx.ext.web.templ.freemarker.FreeMarkerTemplateEngine
-import io.vertx.core.json.JsonArray
 import java.util.*
-import com.sun.xml.internal.ws.streaming.XMLStreamReaderUtil.close
-import io.vertx.ext.sql.SQLConnection
 
 
-
-
-class GuideToJavaDevs : AbstractVerticle() {
+class WikiAppOldSchoolPasta : AbstractVerticle() {
     val SQL_CREATE_PAGES_TABLE = "create table if not exists Pages (Id integer identity primary key, Name varchar(255) unique, Content clob)"
     val SQL_GET_PAGE = "select Id, Content from Pages where Name = ?"
     val SQL_CREATE_PAGE = "insert into Pages values (NULL, ?, ?)"
@@ -29,7 +25,7 @@ class GuideToJavaDevs : AbstractVerticle() {
 
     private var dbClient: JDBCClient? = null
     private var templateEngine: FreeMarkerTemplateEngine? = null
-    private val LOGGER = LoggerFactory.getLogger(GuideToJavaDevs::class.java.simpleName)
+    private val LOGGER = LoggerFactory.getLogger(WikiAppOldSchoolPasta::class.java.simpleName)
 
     override fun start(startFuture: Future<Void>) {
         LOGGER.info("verticle sarting")
@@ -55,22 +51,28 @@ class GuideToJavaDevs : AbstractVerticle() {
 
         dbClient!!.getConnection { ar ->
             LOGGER.info("getting connection")
+            when {
+                ar.failed() -> {
+                    LOGGER.error("Could not open a database connection", ar.cause())
+                    promise1.fail(ar.cause())
+                }
+                else -> {
+                    val connection = ar.result()
+                    connection.execute(SQL_CREATE_PAGES_TABLE) { create ->
+                        connection.close()
+                        when {
+                            create.failed() -> {
+                                LOGGER.error("Database preparation error", create.cause())
+                                promise1.fail(create.cause())
+                            }
+                            else -> {
+                                LOGGER.info("connection established")
+                                promise1.complete()
+                            }
+                        }
 
-            if (!ar.failed()) {
-                val connection = ar.result()
-                connection.execute(SQL_CREATE_PAGES_TABLE) { create ->
-                    connection.close()
-                    if (create.failed()) {
-                        LOGGER.error("Database preparation error", create.cause())
-                        promise1.fail(create.cause())
-                    } else {
-                        LOGGER.info("connection established")
-                        promise1.complete()
                     }
                 }
-            } else {
-                LOGGER.error("Could not open a database connection", ar.cause())
-                promise1.fail(ar.cause())
             }
         }
         LOGGER.info("prepareDatabase ready ${promise1.future()}")
@@ -152,9 +154,11 @@ class GuideToJavaDevs : AbstractVerticle() {
                         val row = fetch.result().results
                                 .stream()
                                 .findFirst()
-                                .orElseGet { JsonArray().add(-1).add("""# A new page
+                                .orElseGet {
+                                    JsonArray().add(-1).add("""# A new page
                                         |
-                                        |Feel-free to write in Markdown!""".trimMargin()) }
+                                        |Feel-free to write in Markdown!""".trimMargin())
+                                }
                         val id = row.getInteger(0)
                         val rawContent = row.getString(1)
 
@@ -185,7 +189,7 @@ class GuideToJavaDevs : AbstractVerticle() {
 
     }
 
-    private fun pageCreateHandler(context : RoutingContext) {
+    private fun pageCreateHandler(context: RoutingContext) {
         val pageName = context.request().getParam("name")
         var location = "/wiki/$pageName"
         if (pageName?.isEmpty() == true) {

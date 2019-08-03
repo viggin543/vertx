@@ -8,6 +8,6 @@ fun main(args: Array<String>) {
     val vertx = vertx()
     logger.info("so it begins...")
     logger.info(args.contentDeepToString())
-    vertx.deployVerticle(GuideToJavaDevs())
+    vertx.deployVerticle(WikiAppOldSchoolPasta())
 }
 

@@ -1,14 +1,10 @@
-package vertx_tutorial
+package vertx_tutorial.simple
 
 import io.vertx.core.AbstractVerticle
 import io.vertx.core.Future
-import io.vertx.core.Promise
 import io.vertx.ext.web.Router
 import io.vertx.ext.web.handler.StaticHandler
-import io.vertx.core.Promise.promise
-
-
-
+import vertx_tutorial.logger
 
 
 class HttpServer : AbstractVerticle() {

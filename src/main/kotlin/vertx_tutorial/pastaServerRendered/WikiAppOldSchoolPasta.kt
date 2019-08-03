@@ -1,4 +1,4 @@
-package vertx_tutorial
+package vertx_tutorial.pastaServerRendered
 
 import com.github.rjeschke.txtmark.Processor
 import io.vertx.core.AbstractVerticle

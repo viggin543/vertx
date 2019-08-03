@@ -1,4 +1,4 @@
-package vertx_tutorial.simple
+package vertx_tutorial.step_0
 
 import io.vertx.core.AbstractVerticle
 import io.vertx.core.Future

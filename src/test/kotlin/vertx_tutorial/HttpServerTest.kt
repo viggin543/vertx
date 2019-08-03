@@ -9,7 +9,7 @@ import org.junit.After
 import org.junit.Before
 import org.junit.runner.RunWith
 import kotlin.test.Test
-import vertx_tutorial.simple.HttpServer
+import vertx_tutorial.step_0.HttpServer
 import java.net.ServerSocket
 
 

@@ -14,25 +14,27 @@ import io.vertx.ext.web.templ.freemarker.FreeMarkerTemplateEngine
 import vertxtutorial.step3.database.WikiDatabaseService
 import vertxtutorial.step3.database.WikiDatabaseServiceFactory
 import java.util.*
+import io.vertx.kotlin.coroutines.CoroutineVerticle
+import io.vertx.kotlin.coroutines.dispatcher
+import kotlinx.coroutines.launch
 
+class HttpServerVerticle : CoroutineVerticle() {
 
-class HttpServerVerticle : AbstractVerticle() {
-
-    private var dbService: WikiDatabaseService? = null
-    private var templateEngine: FreeMarkerTemplateEngine? = null
+    private lateinit var dbService: WikiDatabaseService
+    private lateinit var templateEngine: FreeMarkerTemplateEngine
     val CONFIG_HTTP_SERVER_PORT = "http.server.port"
     val CONFIG_WIKIDB_QUEUE = "wikidb.queue"
     private val LOGGER = LoggerFactory.getLogger(HttpServerVerticle::class.java.simpleName)
 
-    @Throws(Exception::class)
-    override fun start(promise: Promise<Void>) {
-        val wikiDbQueue = config().getString(CONFIG_WIKIDB_QUEUE, "wikidb.queue")
+    override suspend fun start() {
+        val wikiDbQueue = config.getString(CONFIG_WIKIDB_QUEUE, "wikidb.queue")
         dbService = WikiDatabaseServiceFactory.createProxy(vertx, wikiDbQueue)
         templateEngine = FreeMarkerTemplateEngine.create(vertx)
 
 
         val router = Router.router(vertx)
         router.get("/").handler(this::indexHandler)
+        router.get("/").coroutineHandler(this::indexHandler)
         router.get("/wiki/:page").handler(this::pageRenderingHandler)
         router.post().handler(BodyHandler.create())
         router.post("/save").handler(this::pageUpdateHandler)
@@ -41,10 +43,10 @@ class HttpServerVerticle : AbstractVerticle() {
 
         templateEngine = FreeMarkerTemplateEngine.create(vertx)
 
-        val portNumber = config().getInteger(CONFIG_HTTP_SERVER_PORT, 8080)
+        val portNumber = config.getInteger(CONFIG_HTTP_SERVER_PORT, 8080)
         vertx.createHttpServer()
                 .requestHandler(router)
-                .listen(portNumber) { ar ->
+                .list(portNumber) { ar ->
                     if (ar.succeeded()) {
                         LOGGER.info("HTTP server running on port $portNumber")
                         promise.complete()

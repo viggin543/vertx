@@ -26,15 +26,13 @@ class WikiDatabaseVerticle : AbstractVerticle() {
                 .put("max_pool_size", config().getInteger(CONFIG_WIKIDB_JDBC_MAX_POOL_SIZE, 30)))
 
 
-        WikiDatabaseServiceFactory.create(dbClient, sqlQueries, Handler { ready ->
-            if (ready.succeeded()) {
-                ServiceBinder(vertx)
+        WikiDatabaseServiceFactory.create(dbClient, sqlQueries, Handler { serviceImpl ->
+            if (serviceImpl.succeeded()) {
+                ServiceBinder(vertx) // WikiDatabaseServiceVertxEBProxy is in play here ?
                         .setAddress(CONFIG_WIKIDB_QUEUE)
-                        .register(WikiDatabaseService::class.java, ready.result())
+                        .register(WikiDatabaseService::class.java, serviceImpl.result())
                 promise.complete()
-            } else {
-                promise.fail(ready.cause())
-            }
+            } else promise.fail(serviceImpl.cause())
         })
 
     }

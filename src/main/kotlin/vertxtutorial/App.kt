@@ -2,7 +2,7 @@ package vertxtutorial
 import io.vertx.core.Vertx.vertx
 
 import org.slf4j.LoggerFactory
-import vertxtutorial.step_2.MainVerticle
+import vertxtutorial.step3.MainVerticle
 
 val logger = LoggerFactory.getLogger("main")
 fun main(args: Array<String>) {

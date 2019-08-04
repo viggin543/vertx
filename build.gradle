@@ -28,8 +28,9 @@ dependencies {
     compile 'io.vertx:vertx-web:3.8.0'
     compile 'io.vertx:vertx-web-templ-freemarker:3.8.0'
     compile 'io.vertx:vertx-jdbc-client:3.8.0'
-    compile group: 'io.vertx', name: 'vertx-lang-kotlin-gen', version: '3.8.0'
-    compile group: 'io.vertx', name: 'vertx-lang-kotlin-coroutines', version: '3.8.0'
+
+//    compile group: 'io.vertx', name: 'vertx-lang-kotlin-gen', version: '3.8.0'
+//    compile group: 'io.vertx', name: 'vertx-lang-kotlin-coroutines', version: '3.8.0'
 
     compile 'io.vertx:vertx-service-proxy:3.8.0'
     compileOnly 'io.vertx:vertx-codegen:3.8.0:processor'

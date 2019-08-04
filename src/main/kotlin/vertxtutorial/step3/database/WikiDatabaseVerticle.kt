@@ -26,7 +26,7 @@ class WikiDatabaseVerticle : AbstractVerticle() {
                 .put("max_pool_size", config().getInteger(CONFIG_WIKIDB_JDBC_MAX_POOL_SIZE, 30)))
 
 
-        WikiDatabaseService.create(dbClient, sqlQueries) { ready ->
+        WikiDatabaseServiceFactory.create(dbClient, sqlQueries, Handler { ready ->
             if (ready.succeeded()) {
                 ServiceBinder(vertx)
                         .setAddress(CONFIG_WIKIDB_QUEUE)
@@ -35,7 +35,7 @@ class WikiDatabaseVerticle : AbstractVerticle() {
             } else {
                 promise.fail(ready.cause())
             }
-        }
+        })
 
     }
 

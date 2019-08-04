@@ -1,4 +1,4 @@
-package vertx_tutorial.step_2
+package vertxtutorial.step_2
 
 import io.vertx.core.AbstractVerticle
 import io.vertx.core.DeploymentOptions
@@ -16,7 +16,7 @@ class MainVerticle : AbstractVerticle() {
                 DbVerticle(),
                 dbVerticleDeployment
         )
-        dbVerticleDeployment.future().compose { id ->
+        dbVerticleDeployment.future().compose {
             val httpVerticleDeployment = Promise.promise<String>()
             vertx.deployVerticle(
                     httpVerticle::class.java,

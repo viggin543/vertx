@@ -1,4 +1,4 @@
-package vertx_tutorial
+package vertxtutorial
 
 import io.vertx.core.DeploymentOptions
 import io.vertx.core.Vertx
@@ -9,7 +9,7 @@ import org.junit.After
 import org.junit.Before
 import org.junit.runner.RunWith
 import kotlin.test.Test
-import vertx_tutorial.step_0.HttpServer
+import vertxtutorial.step_0.HttpServer
 import java.net.ServerSocket
 
 

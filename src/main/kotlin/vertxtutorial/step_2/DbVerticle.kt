@@ -1,4 +1,4 @@
-package vertx_tutorial.step_2
+package vertxtutorial.step_2
 
 import io.vertx.core.AbstractVerticle
 import io.vertx.core.Promise

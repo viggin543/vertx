@@ -1,4 +1,4 @@
-package vertx_tutorial.step_2
+package vertxtutorial.step_2
 
 import com.github.rjeschke.txtmark.Processor
 import io.vertx.core.AbstractVerticle

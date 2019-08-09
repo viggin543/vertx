@@ -12,7 +12,7 @@ class MainVerticle : CoroutineVerticle() {
         try {
             println(vertx.deployVerticleAwait(WikiDatabaseVerticle()))
             println(vertx.deployVerticleAwait(
-                    "vertxtutorial.step3.http.HttpServerVerticle",
+                    HttpServerVerticle::class.qualifiedName.toString(),
                     DeploymentOptions().setInstances(2)))
         } catch (err: Throwable) {
             println("could not start app")

@@ -6,24 +6,25 @@ import io.vertx.core.Handler
 import io.vertx.core.Promise
 import io.vertx.core.json.JsonObject
 import io.vertx.ext.jdbc.JDBCClient
+import io.vertx.kotlin.coroutines.CoroutineVerticle
 import io.vertx.serviceproxy.ServiceBinder
 import java.io.FileInputStream
 import java.io.IOException
 import java.io.InputStream
+import java.lang.RuntimeException
 import java.util.*
 
 // tag::dbverticle[]
-class WikiDatabaseVerticle : AbstractVerticle() {
+class WikiDatabaseVerticle : CoroutineVerticle() {
 
-    @Throws(Exception::class)
-    override fun start(promise: Promise<Void>) {
+    override suspend fun start() {
 
         val sqlQueries = loadSqlQueries()
 
-        val dbClient = JDBCClient.createShared(vertx, JsonObject()
-                .put("url", config().getString(CONFIG_WIKIDB_JDBC_URL, "jdbc:hsqldb:file:db/wiki"))
-                .put("driver_class", config().getString(CONFIG_WIKIDB_JDBC_DRIVER_CLASS, "org.hsqldb.jdbcDriver"))
-                .put("max_pool_size", config().getInteger(CONFIG_WIKIDB_JDBC_MAX_POOL_SIZE, 30)))
+        val dbClient = JDBCClient.createShared(vertx,
+                JsonObject().put("url", config.getString(CONFIG_WIKIDB_JDBC_URL, "jdbc:hsqldb:file:db/wiki"))
+                .put("driver_class", config.getString(CONFIG_WIKIDB_JDBC_DRIVER_CLASS, "org.hsqldb.jdbcDriver"))
+                .put("max_pool_size", config.getInteger(CONFIG_WIKIDB_JDBC_MAX_POOL_SIZE, 30)))
 
 
         WikiDatabaseServiceFactory.create(dbClient, sqlQueries, Handler { serviceImpl ->
@@ -31,8 +32,7 @@ class WikiDatabaseVerticle : AbstractVerticle() {
                 ServiceBinder(vertx) // WikiDatabaseServiceVertxEBProxy is in play here ?
                         .setAddress(CONFIG_WIKIDB_QUEUE)
                         .register(WikiDatabaseService::class.java, serviceImpl.result())
-                promise.complete()
-            } else promise.fail(serviceImpl.cause())
+            } else throw RuntimeException("shit...")
         })
 
     }
@@ -43,7 +43,7 @@ class WikiDatabaseVerticle : AbstractVerticle() {
     @Throws(IOException::class)
     private fun loadSqlQueries(): HashMap<SqlQuery, String> {
 
-        val queriesFile = config().getString(CONFIG_WIKIDB_SQL_QUERIES_RESOURCE_FILE)
+        val queriesFile = config.getString(CONFIG_WIKIDB_SQL_QUERIES_RESOURCE_FILE)
         val queriesInputStream: InputStream
         if (queriesFile != null) {
             queriesInputStream = FileInputStream(queriesFile)

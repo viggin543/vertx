@@ -1,16 +1,16 @@
 package vertxtutorial.step3.http
 
 import com.github.rjeschke.txtmark.Processor
-import com.sun.xml.internal.ws.spi.db.BindingContextFactory.LOGGER
-import io.vertx.core.AbstractVerticle
 import io.vertx.core.AsyncResult
 import io.vertx.core.Handler
-import io.vertx.core.Promise
+
 import io.vertx.core.logging.LoggerFactory
+import io.vertx.ext.web.Route
 import io.vertx.ext.web.Router
 import io.vertx.ext.web.RoutingContext
 import io.vertx.ext.web.handler.BodyHandler
 import io.vertx.ext.web.templ.freemarker.FreeMarkerTemplateEngine
+import io.vertx.kotlin.core.http.listenAwait
 import vertxtutorial.step3.database.WikiDatabaseService
 import vertxtutorial.step3.database.WikiDatabaseServiceFactory
 import java.util.*
@@ -34,7 +34,7 @@ class HttpServerVerticle : CoroutineVerticle() {
 
         val router = Router.router(vertx)
         router.get("/").handler(this::indexHandler)
-        router.get("/").coroutineHandler(this::indexHandler)
+        router.get("/").handler(this::indexHandler)
         router.get("/wiki/:page").handler(this::pageRenderingHandler)
         router.post().handler(BodyHandler.create())
         router.post("/save").handler(this::pageUpdateHandler)
@@ -46,15 +46,7 @@ class HttpServerVerticle : CoroutineVerticle() {
         val portNumber = config.getInteger(CONFIG_HTTP_SERVER_PORT, 8080)
         vertx.createHttpServer()
                 .requestHandler(router)
-                .list(portNumber) { ar ->
-                    if (ar.succeeded()) {
-                        LOGGER.info("HTTP server running on port $portNumber")
-                        promise.complete()
-                    } else {
-                        LOGGER.error("Could not start a HTTP server", ar.cause())
-                        promise.fail(ar.cause())
-                    }
-                }
+                .listenAwait(portNumber)
     }
 
     private fun indexHandler(context: RoutingContext) {
@@ -152,5 +144,20 @@ class HttpServerVerticle : CoroutineVerticle() {
                 context.fail(reply.cause())
             }
         })
+    }
+
+    /**
+     * An extension method for simplifying coroutines usage with Vert.x Web routers
+     */
+    fun Route.coroutineHandler(fn: suspend (RoutingContext) -> Unit) {
+        handler { ctx ->
+            launch(ctx.vertx().dispatcher()) {
+                try {
+                    fn(ctx)
+                } catch (e: Exception) {
+                    ctx.fail(e)
+                }
+            }
+        }
     }
 }

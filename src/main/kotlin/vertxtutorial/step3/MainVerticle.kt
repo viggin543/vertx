@@ -1,6 +1,6 @@
 package vertxtutorial.step3
 
-import io.vertx.core.DeploymentOptions;
+import io.vertx.core.DeploymentOptions
 import vertxtutorial.step3.database.WikiDatabaseVerticle
 import vertxtutorial.step3.http.HttpServerVerticle
 import io.vertx.kotlin.core.deployVerticleAwait

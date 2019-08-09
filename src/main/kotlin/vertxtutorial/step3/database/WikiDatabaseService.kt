@@ -19,7 +19,8 @@ enum class SqlQuery {
     GET_PAGE,
     CREATE_PAGE,
     SAVE_PAGE,
-    DELETE_PAGE
+    DELETE_PAGE,
+    OPA_PAGE
 }
 
 
@@ -33,6 +34,14 @@ object WikiDatabaseServiceFactory {
     @GenIgnore
     @JvmStatic
     fun createProxy(vertx: Vertx, address:String ):WikiDatabaseService {
+        //The WikiDatabaseServiceVertxEBProxy generated class handles receiving messages
+        // on the event bus and then dispatching them to the WikiDatabaseServiceVertxProxyHandler.
+        // What it does is actually very close to what we did in the previous section:
+        // messages are being sent with a action header to specify which method to invoke,
+        // and parameters are encoded in JSON.
+        // WikiDatabaseServiceVertxProxyHandler dispatches the events to the our WikiDatabaseServiceImpl.
+        // according to the header of th emessage
+        //EBProxy means EventBus Proxy
         return WikiDatabaseServiceVertxEBProxy(vertx, address)
     }
 }
@@ -54,6 +63,9 @@ interface WikiDatabaseService {
 
     @Fluent
     fun deletePage(id:Int, resultHandler: Handler<AsyncResult<Void>>):WikiDatabaseService
+
+    @Fluent
+    fun opaPage(id:Int, resultHandler: Handler<AsyncResult<Void>>):WikiDatabaseService
 
 }
 

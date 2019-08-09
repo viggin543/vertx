@@ -1,9 +1,7 @@
 package vertxtutorial.step3.database
 
 
-import io.vertx.core.AbstractVerticle
 import io.vertx.core.Handler
-import io.vertx.core.Promise
 import io.vertx.core.json.JsonObject
 import io.vertx.ext.jdbc.JDBCClient
 import io.vertx.kotlin.coroutines.CoroutineVerticle
@@ -11,10 +9,8 @@ import io.vertx.serviceproxy.ServiceBinder
 import java.io.FileInputStream
 import java.io.IOException
 import java.io.InputStream
-import java.lang.RuntimeException
 import java.util.*
 
-// tag::dbverticle[]
 class WikiDatabaseVerticle : CoroutineVerticle() {
 
     override suspend fun start() {
@@ -62,6 +58,7 @@ class WikiDatabaseVerticle : CoroutineVerticle() {
         sqlQueries[SqlQuery.CREATE_PAGE] = queriesProps.getProperty("create-page")
         sqlQueries[SqlQuery.SAVE_PAGE] = queriesProps.getProperty("save-page")
         sqlQueries[SqlQuery.DELETE_PAGE] = queriesProps.getProperty("delete-page")
+        sqlQueries[SqlQuery.OPA_PAGE] = queriesProps.getProperty("delete-page")
         return sqlQueries
     }
 
@@ -74,4 +71,3 @@ class WikiDatabaseVerticle : CoroutineVerticle() {
         val CONFIG_WIKIDB_QUEUE = "wikidb.queue"
     }
 }
-// end::dbverticle[]

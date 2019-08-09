@@ -10,12 +10,15 @@ import io.vertx.ext.jdbc.JDBCClient
 import org.slf4j.LoggerFactory
 import java.util.*
 
-
-// tag::implementation[]
 internal class WikiDatabaseServiceImpl(
         private val dbClient: JDBCClient,
         private val sqlQueries: HashMap<SqlQuery, String>,
-        readyHandler: Handler<AsyncResult<WikiDatabaseService>>) : WikiDatabaseService {
+        private val readyHandler: Handler<AsyncResult<WikiDatabaseService>>) : WikiDatabaseService {
+
+    override fun opaPage(id: Int, resultHandler: Handler<AsyncResult<Void>>): WikiDatabaseService {
+        resultHandler.handle(Future.succeededFuture())
+        return this
+    }
 
     init {
         dbClient.getConnection { ar ->

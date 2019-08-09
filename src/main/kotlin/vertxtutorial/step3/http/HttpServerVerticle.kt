@@ -1,9 +1,6 @@
 package vertxtutorial.step3.http
 
 import com.github.rjeschke.txtmark.Processor
-import io.vertx.core.AsyncResult
-import io.vertx.core.Handler
-
 import io.vertx.core.logging.LoggerFactory
 import io.vertx.ext.web.Route
 import io.vertx.ext.web.Router
@@ -11,12 +8,11 @@ import io.vertx.ext.web.RoutingContext
 import io.vertx.ext.web.handler.BodyHandler
 import io.vertx.ext.web.templ.freemarker.FreeMarkerTemplateEngine
 import io.vertx.kotlin.core.http.listenAwait
-import vertxtutorial.step3.database.WikiDatabaseService
-import vertxtutorial.step3.database.WikiDatabaseServiceFactory
-import java.util.*
 import io.vertx.kotlin.coroutines.CoroutineVerticle
 import io.vertx.kotlin.coroutines.dispatcher
 import kotlinx.coroutines.launch
+import vertxtutorial.step3.database.*
+import java.util.*
 
 class HttpServerVerticle : CoroutineVerticle() {
 
@@ -31,15 +27,13 @@ class HttpServerVerticle : CoroutineVerticle() {
         dbService = WikiDatabaseServiceFactory.createProxy(vertx, wikiDbQueue)
         templateEngine = FreeMarkerTemplateEngine.create(vertx)
 
-
         val router = Router.router(vertx)
-        router.get("/").handler(this::indexHandler)
-        router.get("/").handler(this::indexHandler)
-        router.get("/wiki/:page").handler(this::pageRenderingHandler)
+        router.get("/").coroutineHandler(this::indexHandler)
+        router.get("/wiki/:page").coroutineHandler(this::pageRenderingHandler)
         router.post().handler(BodyHandler.create())
-        router.post("/save").handler(this::pageUpdateHandler)
+        router.post("/save").coroutineHandler(this::pageUpdateHandler)
         router.post("/create").handler(this::pageCreateHandler)
-        router.post("/delete").handler(this::pageDeletionHandler)
+        router.post("/delete").coroutineHandler(this::pageDeletionHandler)
 
         templateEngine = FreeMarkerTemplateEngine.create(vertx)
 
@@ -49,78 +43,61 @@ class HttpServerVerticle : CoroutineVerticle() {
                 .listenAwait(portNumber)
     }
 
-    private fun indexHandler(context: RoutingContext) {
-        dbService!!.fetchAllPages(Handler { reply ->
-            if (reply.succeeded()) {
-                context.put("title", "Wiki home")
-                context.put("pages", reply.result().getList())
-                templateEngine!!.render(context.data(), "templates/index.ftl", { ar ->
-                    if (ar.succeeded()) {
-                        context.response().putHeader("Content-Type", "text/html")
-                        context.response().end(ar.result())
-                    } else {
-                        context.fail(ar.cause())
-                    }
-                })
+    private suspend fun indexHandler(context: RoutingContext) {
+        val res = dbService!!.fetchAllPagesAwait()
+        context.put("title", "Wiki home")
+        context.put("pages", res.getList())
+        templateEngine!!.render(context.data(), "templates/index.ftl", { ar ->
+            if (ar.succeeded()) {
+                context.response().putHeader("Content-Type", "text/html")
+                context.response().end(ar.result())
             } else {
-                context.fail(reply.cause())
+                context.fail(ar.cause())
             }
         })
     }
 
-    private fun pageRenderingHandler(context: RoutingContext) {
+    private suspend fun pageRenderingHandler(context: RoutingContext) {
         val requestedPage = context.request().getParam("page")
-        dbService!!.fetchPage(requestedPage, Handler { reply ->
-            if (reply.succeeded()) {
 
-                val payLoad = reply.result()
-                val found = payLoad.getBoolean("found")!!
-                val rawContent = payLoad.getString("rawContent", "# A new page\n" +
-                        "\n" +
-                        "Feel-free to write in Markdown!\n")
-                context.put("title", requestedPage)
-                context.put("id", payLoad.getInteger("id", -1))
-                context.put("newPage", if (found) "no" else "yes")
-                context.put("rawContent", rawContent)
-                context.put("content", Processor.process(rawContent))
-                context.put("timestamp", Date().toString())
+        val payLoad = dbService!!.fetchPageAwait(requestedPage)
 
-                templateEngine!!.render(context.data(), "templates/page.ftl", { ar ->
-                    if (ar.succeeded()) {
-                        context.response().putHeader("Content-Type", "text/html")
-                        context.response().end(ar.result())
-                    } else {
-                        context.fail(ar.cause())
-                    }
-                })
+        val found = payLoad.getBoolean("found")!!
+        val rawContent = payLoad.getString("rawContent", "# A new page\n" +
+                "\n" +
+                "Feel-free to write in Markdown!\n")
+        context.put("title", requestedPage)
+        context.put("id", payLoad.getInteger("id", -1))
+        context.put("newPage", if (found) "no" else "yes")
+        context.put("rawContent", rawContent)
+        context.put("content", Processor.process(rawContent))
+        context.put("timestamp", Date().toString())
 
+        templateEngine!!.render(context.data(), "templates/page.ftl", { ar ->
+            if (ar.succeeded()) {
+                context.response().putHeader("Content-Type", "text/html")
+                context.response().end(ar.result())
             } else {
-                context.fail(reply.cause())
+                context.fail(ar.cause())
             }
         })
     }
 
-    private fun pageUpdateHandler(context: RoutingContext) {
+    private suspend fun pageUpdateHandler(context: RoutingContext) {
         val title = context.request().getParam("title")
         val markdown = context.request().getParam("markdown")
-        val handler = Handler<AsyncResult<Void>> { reply ->
-            if (reply.succeeded()) {
-                context.response().statusCode = 303
-                context.response().putHeader("Location", "/wiki/$title")
-                context.response().end()
-            } else {
-                context.fail(reply.cause())
-            }
-        }
+
         if ("yes" == context.request().getParam("newPage")) {
-            dbService!!.createPage(title, markdown, handler)
+            dbService!!.createPageAwait(title, markdown)
         } else {
-            dbService!!.savePage(
+            dbService!!.savePageAwait(
                     Integer.valueOf(context.request().getParam("id")),
-                    markdown,
-                    handler
-            )
+                    markdown)
         }
+
+        context.response().statusCode = 303
+        context.response().putHeader("Location", "/wiki/$title")
+        context.response().end()
     }
 
     private fun pageCreateHandler(context: RoutingContext) {
@@ -134,16 +111,11 @@ class HttpServerVerticle : CoroutineVerticle() {
         context.response().end()
     }
 
-    private fun pageDeletionHandler(context: RoutingContext) {
-        dbService!!.deletePage(Integer.valueOf(context.request().getParam("id")), Handler { reply ->
-            if (reply.succeeded()) {
-                context.response().statusCode = 303
-                context.response().putHeader("Location", "/")
-                context.response().end()
-            } else {
-                context.fail(reply.cause())
-            }
-        })
+    private suspend fun pageDeletionHandler(context: RoutingContext) {
+        dbService!!.deletePageAwait(Integer.valueOf(context.request().getParam("id")))
+        context.response().statusCode = 303
+        context.response().putHeader("Location", "/")
+        context.response().end()
     }
 
     /**
@@ -160,4 +132,6 @@ class HttpServerVerticle : CoroutineVerticle() {
             }
         }
     }
+
+
 }

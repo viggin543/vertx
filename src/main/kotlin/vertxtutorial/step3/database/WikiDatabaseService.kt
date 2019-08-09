@@ -82,19 +82,19 @@ suspend fun WikiDatabaseService.fetchPageAwait(name: String): JsonObject {
     }
 }
 
-suspend fun WikiDatabaseService.createPageAwait(title: String, markdown: String): Unit {
+suspend fun WikiDatabaseService.createPageAwait(title: String, markdown: String) {
     return awaitResult {
         this.createPage(title, markdown, Handler { ar -> it.handle(ar.mapEmpty()) })
     }
 }
 
-suspend fun WikiDatabaseService.savePageAwait(id: Int, markdown: String): Unit {
+suspend fun WikiDatabaseService.savePageAwait(id: Int, markdown: String) {
     return awaitResult {
         this.savePage(id, markdown, Handler { ar -> it.handle(ar.mapEmpty()) })
     }
 }
 
-suspend fun WikiDatabaseService.deletePageAwait(id: Int): Unit {
+suspend fun WikiDatabaseService.deletePageAwait(id: Int) {
     return awaitResult {
         this.deletePage(id, Handler { ar -> it.handle(ar.mapEmpty()) })
     }

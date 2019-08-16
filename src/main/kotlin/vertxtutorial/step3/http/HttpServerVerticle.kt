@@ -13,16 +13,21 @@ import io.vertx.kotlin.coroutines.dispatcher
 import kotlinx.coroutines.launch
 import vertxtutorial.step3.database.*
 import java.util.*
+import io.vertx.config.ConfigRetriever
+import io.vertx.kotlin.config.getConfigAwait
+
 
 class HttpServerVerticle : CoroutineVerticle() {
 
     private lateinit var dbService: WikiDatabaseService
     private lateinit var templateEngine: FreeMarkerTemplateEngine
-    val CONFIG_HTTP_SERVER_PORT = "http.server.port"
-    val CONFIG_WIKIDB_QUEUE = "wikidb.queue"
+
+    private val CONFIG_HTTP_SERVER_PORT = "http.server.port"
+    private val CONFIG_WIKIDB_QUEUE = "wikidb.queue"
     private val LOGGER = LoggerFactory.getLogger(HttpServerVerticle::class.java.simpleName)
 
     override suspend fun start() {
+        val config = ConfigRetriever.create(vertx).getConfigAwait()
         val wikiDbQueue = config.getString(CONFIG_WIKIDB_QUEUE, "wikidb.queue")
         dbService = WikiDatabaseServiceFactory.createProxy(vertx, wikiDbQueue)
         templateEngine = FreeMarkerTemplateEngine.create(vertx)
@@ -44,10 +49,10 @@ class HttpServerVerticle : CoroutineVerticle() {
     }
 
     private suspend fun indexHandler(context: RoutingContext) {
-        val res = dbService!!.fetchAllPagesAwait()
+        val res = dbService.fetchAllPagesAwait()
         context.put("title", "Wiki home")
         context.put("pages", res.getList())
-        templateEngine!!.render(context.data(), "templates/index.ftl", { ar ->
+        templateEngine.render(context.data(), "templates/index.ftl", { ar ->
             if (ar.succeeded()) {
                 context.response().putHeader("Content-Type", "text/html")
                 context.response().end(ar.result())
@@ -60,7 +65,7 @@ class HttpServerVerticle : CoroutineVerticle() {
     private suspend fun pageRenderingHandler(context: RoutingContext) {
         val requestedPage = context.request().getParam("page")
 
-        val payLoad = dbService!!.fetchPageAwait(requestedPage)
+        val payLoad = dbService.fetchPageAwait(requestedPage)
 
         val found = payLoad.getBoolean("found")!!
         val rawContent = payLoad.getString("rawContent", "# A new page\n" +
@@ -73,7 +78,7 @@ class HttpServerVerticle : CoroutineVerticle() {
         context.put("content", Processor.process(rawContent))
         context.put("timestamp", Date().toString())
 
-        templateEngine!!.render(context.data(), "templates/page.ftl", { ar ->
+        templateEngine.render(context.data(), "templates/page.ftl", { ar ->
             if (ar.succeeded()) {
                 context.response().putHeader("Content-Type", "text/html")
                 context.response().end(ar.result())
@@ -88,9 +93,9 @@ class HttpServerVerticle : CoroutineVerticle() {
         val markdown = context.request().getParam("markdown")
 
         if ("yes" == context.request().getParam("newPage")) {
-            dbService!!.createPageAwait(title, markdown)
+            dbService.createPageAwait(title, markdown)
         } else {
-            dbService!!.savePageAwait(
+            dbService.savePageAwait(
                     Integer.valueOf(context.request().getParam("id")),
                     markdown)
         }
@@ -112,7 +117,7 @@ class HttpServerVerticle : CoroutineVerticle() {
     }
 
     private suspend fun pageDeletionHandler(context: RoutingContext) {
-        dbService!!.deletePageAwait(Integer.valueOf(context.request().getParam("id")))
+        dbService.deletePageAwait(Integer.valueOf(context.request().getParam("id")))
         context.response().statusCode = 303
         context.response().putHeader("Location", "/")
         context.response().end()

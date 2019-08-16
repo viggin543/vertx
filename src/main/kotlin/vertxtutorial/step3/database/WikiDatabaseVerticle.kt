@@ -2,35 +2,25 @@ package vertxtutorial.step3.database
 
 
 import io.vertx.core.Handler
-import io.vertx.core.json.JsonObject
 import io.vertx.ext.jdbc.JDBCClient
 import io.vertx.kotlin.coroutines.CoroutineVerticle
 import io.vertx.serviceproxy.ServiceBinder
-import java.io.FileInputStream
 import java.io.IOException
-import java.io.InputStream
 import java.util.*
 
-class WikiDatabaseVerticle : CoroutineVerticle() {
+class WikiDatabaseVerticle(private val dbClient: JDBCClient) : CoroutineVerticle() {
 
     override suspend fun start() {
 
         val sqlQueries = loadSqlQueries()
 
-        val dbClient = JDBCClient.createShared(vertx,
-                JsonObject().put("url", config.getString(CONFIG_WIKIDB_JDBC_URL, "jdbc:hsqldb:file:db/wiki"))
-                .put("driver_class", config.getString(CONFIG_WIKIDB_JDBC_DRIVER_CLASS, "org.hsqldb.jdbcDriver"))
-                .put("max_pool_size", config.getInteger(CONFIG_WIKIDB_JDBC_MAX_POOL_SIZE, 30)))
-
-
         WikiDatabaseServiceFactory.create(dbClient, sqlQueries, Handler { serviceImpl ->
             if (serviceImpl.succeeded()) {
-                ServiceBinder(vertx) // WikiDatabaseServiceVertxEBProxy is in play here ?
+                ServiceBinder(vertx) // published WikiDatabaseService as WikiDatabaseServiceImpl. like guice bind.
                         .setAddress(CONFIG_WIKIDB_QUEUE)
                         .register(WikiDatabaseService::class.java, serviceImpl.result())
-            } else throw RuntimeException("shit...")
+            } else throw RuntimeException("shit... could not get connectin... ")
         })
-
     }
 
     /*
@@ -38,19 +28,10 @@ class WikiDatabaseVerticle : CoroutineVerticle() {
    */
     @Throws(IOException::class)
     private fun loadSqlQueries(): HashMap<SqlQuery, String> {
-
-        val queriesFile = config.getString(CONFIG_WIKIDB_SQL_QUERIES_RESOURCE_FILE)
-        val queriesInputStream: InputStream
-        if (queriesFile != null) {
-            queriesInputStream = FileInputStream(queriesFile)
-        } else {
-            queriesInputStream = javaClass.getResourceAsStream("/db-queries.properties")
-        }
-
         val queriesProps = Properties()
-        queriesProps.load(queriesInputStream)
-        queriesInputStream.close()
-
+        javaClass.getResourceAsStream("/db-queries.properties").use {
+            queriesProps.load(it)
+        }
         val sqlQueries = HashMap<SqlQuery, String>()
         sqlQueries[SqlQuery.CREATE_PAGES_TABLE] = queriesProps.getProperty("create-pages-table")
         sqlQueries[SqlQuery.ALL_PAGES] = queriesProps.getProperty("all-pages")
@@ -63,11 +44,9 @@ class WikiDatabaseVerticle : CoroutineVerticle() {
     }
 
     companion object {
-
-        val CONFIG_WIKIDB_JDBC_URL = "wikidb.jdbc.url"
-        val CONFIG_WIKIDB_JDBC_DRIVER_CLASS = "wikidb.jdbc.driver_class"
-        val CONFIG_WIKIDB_JDBC_MAX_POOL_SIZE = "wikidb.jdbc.max_pool_size"
-        val CONFIG_WIKIDB_SQL_QUERIES_RESOURCE_FILE = "wikidb.sqlqueries.resource.file"
-        val CONFIG_WIKIDB_QUEUE = "wikidb.queue"
+        const val CONFIG_WIKIDB_JDBC_URL = "wikidb.jdbc.url"
+        const val CONFIG_WIKIDB_JDBC_DRIVER_CLASS = "wikidb.jdbc.driver_class"
+        const val CONFIG_WIKIDB_JDBC_MAX_POOL_SIZE = "wikidb.jdbc.max_pool_size"
+        const val CONFIG_WIKIDB_QUEUE = "wikidb.queue"
     }
 }

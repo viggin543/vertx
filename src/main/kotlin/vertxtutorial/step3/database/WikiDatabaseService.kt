@@ -20,20 +20,23 @@ enum class SqlQuery {
     CREATE_PAGE,
     SAVE_PAGE,
     DELETE_PAGE,
-    OPA_PAGE
+    ALL_PAGES_DATA,
+    GET_PAGE_BY_ID
 }
 
 
 object WikiDatabaseServiceFactory {
     @GenIgnore
     @JvmStatic
-    fun create(dbClient: JDBCClient, sqlQueries: HashMap<SqlQuery, String>, readyHandler: Handler<AsyncResult<WikiDatabaseService>>):WikiDatabaseService {
+    fun create(dbClient: JDBCClient, sqlQueries: HashMap<SqlQuery, String>, readyHandler: Handler<AsyncResult<WikiDatabaseService>>): WikiDatabaseService {
         return WikiDatabaseServiceImpl(dbClient, sqlQueries, readyHandler)
 
     }
+
+    private var db: WikiDatabaseServiceVertxEBProxy? = null
     @GenIgnore
     @JvmStatic
-    fun createProxy(vertx: Vertx, address:String ):WikiDatabaseService {
+    fun createProxy(vertx: Vertx, address: String): WikiDatabaseService {
         //The WikiDatabaseServiceVertxEBProxy generated class handles receiving messages
         // on the event bus and then dispatching them to the WikiDatabaseServiceVertxProxyHandler.
         // What it does is actually very close to what we did in the previous section:
@@ -50,29 +53,43 @@ object WikiDatabaseServiceFactory {
 @VertxGen
 interface WikiDatabaseService {
     @Fluent
-    fun fetchAllPages(resultHandler: Handler<AsyncResult<JsonArray>>):WikiDatabaseService
+    fun fetchAllPages(resultHandler: Handler<AsyncResult<JsonArray>>): WikiDatabaseService
 
     @Fluent
-    fun fetchPage(name:String,resultHandler: Handler<AsyncResult<JsonObject>>):WikiDatabaseService
+    fun fetchPage(name: String, resultHandler: Handler<AsyncResult<JsonObject>>): WikiDatabaseService
 
     @Fluent
-    fun createPage(title:String, markdown:String, resultHandler: Handler<AsyncResult<Void>>):WikiDatabaseService
+    fun createPage(title: String, markdown: String, resultHandler: Handler<AsyncResult<Void>>): WikiDatabaseService
 
     @Fluent
-    fun savePage(id:Int, markdown:String,resultHandler: Handler<AsyncResult<Void>>):WikiDatabaseService
+    fun savePage(id: Int, markdown: String, resultHandler: Handler<AsyncResult<Void>>): WikiDatabaseService
 
     @Fluent
-    fun deletePage(id:Int, resultHandler: Handler<AsyncResult<Void>>):WikiDatabaseService
+    fun deletePage(id: Int, resultHandler: Handler<AsyncResult<Void>>): WikiDatabaseService
 
     @Fluent
-    fun opaPage(id:Int, resultHandler: Handler<AsyncResult<Void>>):WikiDatabaseService
+    fun fetchPageById(id: Int, resultHandler: Handler<AsyncResult<JsonObject>>): WikiDatabaseService
 
+    @Fluent
+    fun fetchAllPagesData(resultHandler: Handler<AsyncResult<List<JsonObject>>>): WikiDatabaseService
 }
 
 
 suspend fun WikiDatabaseService.fetchAllPagesAwait(): JsonArray {
     return awaitResult {
         this.fetchAllPages(it)
+    }
+}
+
+suspend  fun WikiDatabaseService.fetchPageByIdAwait(id: Int) : JsonObject{
+    return awaitResult {
+        this.fetchPageById(id,it)
+    }
+}
+
+suspend fun WikiDatabaseService.fetchAllPagesDataAwait(): List<JsonObject> {
+    return awaitResult {
+        this.fetchAllPagesData(it)
     }
 }
 

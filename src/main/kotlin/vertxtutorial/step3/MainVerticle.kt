@@ -18,6 +18,8 @@ class MainVerticle : CoroutineVerticle() {
                             .put("max_pool_size", config.getInteger(WikiDatabaseVerticle.CONFIG_WIKIDB_JDBC_MAX_POOL_SIZE, 30)))
             vertx.deployVerticleAwait(WikiDatabaseVerticle(client))
             vertx.deployVerticleAwait(
+                    // in order to use DI, just create the verticle with Guice.
+                    // And inject it with a factory that will create children verticles if necessary...
                     HttpServerVerticle::class.qualifiedName.toString(),
                     DeploymentOptions().setInstances(2))
         } catch (err: Throwable) {

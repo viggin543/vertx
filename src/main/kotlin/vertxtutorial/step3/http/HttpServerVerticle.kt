@@ -1,65 +1,126 @@
 package vertxtutorial.step3.http
 
 import com.github.rjeschke.txtmark.Processor
+import io.vertx.config.ConfigRetriever
+import io.vertx.core.json.JsonArray
+import io.vertx.core.json.JsonObject
 import io.vertx.core.logging.LoggerFactory
-import io.vertx.ext.web.Route
 import io.vertx.ext.web.Router
 import io.vertx.ext.web.RoutingContext
+import io.vertx.ext.web.client.WebClient
+import io.vertx.ext.web.client.WebClientOptions
+import io.vertx.ext.web.codec.BodyCodec
 import io.vertx.ext.web.handler.BodyHandler
 import io.vertx.ext.web.templ.freemarker.FreeMarkerTemplateEngine
+import io.vertx.kotlin.config.getConfigAwait
 import io.vertx.kotlin.core.http.listenAwait
 import io.vertx.kotlin.coroutines.CoroutineVerticle
-import io.vertx.kotlin.coroutines.dispatcher
-import kotlinx.coroutines.launch
+import io.vertx.kotlin.ext.web.client.sendJsonObjectAwait
 import vertxtutorial.step3.database.*
 import java.util.*
-import io.vertx.config.ConfigRetriever
-import io.vertx.kotlin.config.getConfigAwait
 
 
-class HttpServerVerticle : CoroutineVerticle() {
+class HttpServerVerticle : CoroutineVerticle() , CoroutineHandler {
 
     private lateinit var dbService: WikiDatabaseService
     private lateinit var templateEngine: FreeMarkerTemplateEngine
+    private lateinit var webClient: WebClient
 
     private val CONFIG_HTTP_SERVER_PORT = "http.server.port"
     private val CONFIG_WIKIDB_QUEUE = "wikidb.queue"
     private val LOGGER = LoggerFactory.getLogger(HttpServerVerticle::class.java.simpleName)
 
+
     override suspend fun start() {
         val config = ConfigRetriever.create(vertx).getConfigAwait()
-        val wikiDbQueue = config.getString(CONFIG_WIKIDB_QUEUE, "wikidb.queue")
-        dbService = WikiDatabaseServiceFactory.createProxy(vertx, wikiDbQueue)
+        dbService = WikiDatabaseServiceFactory.createProxy(vertx,
+                config.getString(CONFIG_WIKIDB_QUEUE, "wikidb.queue")
+        )
         templateEngine = FreeMarkerTemplateEngine.create(vertx)
+        webClient = WebClient.create(vertx, WebClientOptions()
+                .setSsl(true)
+                .setUserAgent("vert-x3"))
 
-        val router = Router.router(vertx)
-        router.get("/").coroutineHandler(this::indexHandler)
-        router.get("/wiki/:page").coroutineHandler(this::pageRenderingHandler)
-        router.post().handler(BodyHandler.create())
-        router.post("/save").coroutineHandler(this::pageUpdateHandler)
-        router.post("/create").handler(this::pageCreateHandler)
-        router.post("/delete").coroutineHandler(this::pageDeletionHandler)
+        val router = Router.router(vertx).apply {
+            val self = this@HttpServerVerticle
+            get("/").coroutineHandler(self::indexHandler)
+            get("/wiki/:page").coroutineHandler(self::pageRenderingHandler)
+            post().handler(BodyHandler.create())
+            post("/save").coroutineHandler(self::pageUpdateHandler)
+            post("/create").handler(self::pageCreateHandler)
+            post("/delete").coroutineHandler(self::pageDeletionHandler)
+            get("/backup").coroutineHandler(self::backupHandler)
+        }
 
-        templateEngine = FreeMarkerTemplateEngine.create(vertx)
+        with(Router.router(vertx)) {
+            val api = Api(dbService)
+            get("/pages").coroutineHandler(api::apiRoot)
+            get("/pages/:id").coroutineHandler(api::apiGetPage)
+            post().handler(BodyHandler.create())
+            post("/pages").coroutineHandler( api::apiCreatePage)
+            put().handler(BodyHandler.create())
+            put("/pages/:id").coroutineHandler( api::apiUpdatePage)
+            delete("/pages/:id").coroutineHandler( api::apiDeletePage)
+            router.mountSubRouter("/api", this)
+        }
 
-        val portNumber = config.getInteger(CONFIG_HTTP_SERVER_PORT, 8080)
         vertx.createHttpServer()
                 .requestHandler(router)
-                .listenAwait(portNumber)
+                .listenAwait(config.getInteger(CONFIG_HTTP_SERVER_PORT, 8080))
+    }
+
+
+    private suspend fun backupHandler(context: RoutingContext) {
+        val pagesData = dbService.fetchAllPagesDataAwait()
+        val payload = JsonObject()
+                .put("files", JsonArray().apply {
+                    pagesData.forEach { page ->
+                        add(JsonObject().apply {
+                            put("name", page.getString("NAME"))
+                            put("content", page.getString("CONTENT"))
+                        })
+                    }
+                })
+                .put("language", "plaintext")
+                .put("title", "vertx-wiki-backup")
+                .put("public", true)
+
+        with(webClient.post(443, "snippets.glot.io", "/snippets")
+                .putHeader("Content-Type", "application/json")
+                .`as`(BodyCodec.jsonObject()) //parses response as json
+                .sendJsonObjectAwait(payload)) {
+            when {
+                statusCode() == 200 -> {
+                    val url = "https://glot.io/snippets/" + body().getString("id")
+                    context.put("backup_gist_url", url)
+                    indexHandler(context)
+                }
+                else -> {
+                    LOGGER.error(StringBuilder()
+                            .append("Could not backup the wiki: ")
+                            .append(statusMessage())
+                            .append(System.getProperty("line.separator"))
+                            .append(body()?.encodePrettily() ?: "").toString())
+                    context.fail(502)
+                }
+            }
+        }
+
+
     }
 
     private suspend fun indexHandler(context: RoutingContext) {
         val res = dbService.fetchAllPagesAwait()
         context.put("title", "Wiki home")
-        context.put("pages", res.getList())
-        templateEngine.render(context.data(), "templates/index.ftl", { ar ->
+        context.put("pages", res.list)
+        templateEngine.render(context.data(), "templates/index.ftl") { ar ->
             if (ar.succeeded()) {
                 context.response().putHeader("Content-Type", "text/html")
                 context.response().end(ar.result())
             } else {
                 context.fail(ar.cause())
             }
-        })
+        }
     }
 
     private suspend fun pageRenderingHandler(context: RoutingContext) {
@@ -78,14 +139,14 @@ class HttpServerVerticle : CoroutineVerticle() {
         context.put("content", Processor.process(rawContent))
         context.put("timestamp", Date().toString())
 
-        templateEngine.render(context.data(), "templates/page.ftl", { ar ->
+        templateEngine.render(context.data(), "templates/page.ftl") { ar ->
             if (ar.succeeded()) {
                 context.response().putHeader("Content-Type", "text/html")
                 context.response().end(ar.result())
             } else {
                 context.fail(ar.cause())
             }
-        })
+        }
     }
 
     private suspend fun pageUpdateHandler(context: RoutingContext) {
@@ -122,21 +183,5 @@ class HttpServerVerticle : CoroutineVerticle() {
         context.response().putHeader("Location", "/")
         context.response().end()
     }
-
-    /**
-     * An extension method for simplifying coroutines usage with Vert.x Web routers
-     */
-    fun Route.coroutineHandler(fn: suspend (RoutingContext) -> Unit) {
-        handler { ctx ->
-            launch(ctx.vertx().dispatcher()) {
-                try {
-                    fn(ctx)
-                } catch (e: Exception) {
-                    ctx.fail(e)
-                }
-            }
-        }
-    }
-
 
 }

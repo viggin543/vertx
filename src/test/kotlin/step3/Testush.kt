@@ -2,10 +2,14 @@ package step3
 
 import io.vertx.core.DeploymentOptions
 import io.vertx.core.Vertx
+import io.vertx.core.buffer.Buffer
+import io.vertx.core.http.HttpServer
 import io.vertx.core.json.JsonObject
-import io.vertx.ext.jdbc.JDBCClient
 import io.vertx.ext.unit.TestContext
 import io.vertx.ext.unit.junit.VertxUnitRunner
+import io.vertx.ext.web.client.HttpResponse
+import io.vertx.ext.web.client.WebClient
+import io.vertx.kotlin.coroutines.awaitResult
 import kotlinx.coroutines.runBlocking
 import org.junit.After
 import org.junit.Before
@@ -25,29 +29,14 @@ class Testush {
     fun prepare(context: TestContext) {
 
         vertx = Vertx.vertx()
-        val async = context.async()
+
         val conf = JsonObject()
                 .put(WikiDatabaseVerticle.CONFIG_WIKIDB_JDBC_URL, "jdbc:hsqldb:mem:db?shutdown=true")
                 .put(WikiDatabaseVerticle.CONFIG_WIKIDB_JDBC_MAX_POOL_SIZE, 30)
 
-        val client = JDBCClient.createShared(vertx,
-                JsonObject().put("url", conf.getString(WikiDatabaseVerticle.CONFIG_WIKIDB_JDBC_URL, "jdbc:hsqldb:file:db/wiki"))
-                        .put("driver_class", conf.getString(WikiDatabaseVerticle.CONFIG_WIKIDB_JDBC_DRIVER_CLASS, "org.hsqldb.jdbcDriver"))
-                        .put("max_pool_size", conf.getInteger(WikiDatabaseVerticle.CONFIG_WIKIDB_JDBC_MAX_POOL_SIZE, 30)))
-
-
-        client.getConnection { ar ->
-            if (ar.succeeded()) {
-                println("got connetion")
-                async.complete()
-                ar.result().close()
-            } else {
-                context.fail()
-                println("failed to open connection ")
-            }
-        }
 
         runBlocking {
+            val client = dbClientForTest(conf, vertx)
             try {
                 vertx.deployVerticle(WikiDatabaseVerticle(client), DeploymentOptions().setConfig(conf))
                 service = WikiDatabaseServiceFactory.createProxy(vertx, WikiDatabaseVerticle.CONFIG_WIKIDB_QUEUE)
@@ -58,6 +47,7 @@ class Testush {
             println("finished test setup")
         }
     }
+
 
     @Test
     fun crud_operations(context: TestContext) {
@@ -96,6 +86,24 @@ class Testush {
         vertx.setPeriodic(100) { n -> println(n);a2.countDown() }
     }
 
+    @Test
+    fun start_http_server(context: TestContext) {
+
+        runBlocking {
+            awaitResult<HttpServer> {
+                vertx.createHttpServer().requestHandler { req -> req.response().putHeader("Content-Type", "text/plain").end("Ok") }
+                    .listen(8080,it)
+            }
+            val webClient: WebClient = WebClient.create(vertx)
+            val response: HttpResponse<Buffer> = awaitResult {
+                webClient.get(8080, "localhost", "/").send(it)
+            }
+            context.assertTrue(response.headers().contains("Content-Type"))
+            context.assertEquals("text/plain", response.getHeader("Content-Type"))
+            context.assertEquals("Ok", response.body().toString())
+            webClient.close()
+        }
+    }
 }
 
 

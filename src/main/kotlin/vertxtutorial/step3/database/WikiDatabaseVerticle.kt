@@ -12,9 +12,7 @@ class WikiDatabaseVerticle(private val dbClient: JDBCClient) : CoroutineVerticle
 
     override suspend fun start() {
 
-        val sqlQueries = loadSqlQueries()
-
-        WikiDatabaseServiceFactory.create(dbClient, sqlQueries, Handler { serviceImpl ->
+        WikiDatabaseServiceFactory.create(dbClient, loadSqlQueries(), Handler { serviceImpl ->
             if (serviceImpl.succeeded()) {
                 ServiceBinder(vertx) // published WikiDatabaseService as WikiDatabaseServiceImpl. like guice bind.
                         .setAddress(CONFIG_WIKIDB_QUEUE)
@@ -23,24 +21,24 @@ class WikiDatabaseVerticle(private val dbClient: JDBCClient) : CoroutineVerticle
         })
     }
 
-    /*
-   * Note: this uses blocking APIs, but data is small...
-   */
     @Throws(IOException::class)
     private fun loadSqlQueries(): HashMap<SqlQuery, String> {
-        val queriesProps = Properties()
-        javaClass.getResourceAsStream("/db-queries.properties").use {
-            queriesProps.load(it)
+         val queriesProps = Properties().apply {
+             javaClass.getResourceAsStream("/db-queries.properties").use {
+                 load(it)
+             }
         }
-        val sqlQueries = HashMap<SqlQuery, String>()
-        sqlQueries[SqlQuery.CREATE_PAGES_TABLE] = queriesProps.getProperty("create-pages-table")
-        sqlQueries[SqlQuery.ALL_PAGES] = queriesProps.getProperty("all-pages")
-        sqlQueries[SqlQuery.GET_PAGE] = queriesProps.getProperty("get-page")
-        sqlQueries[SqlQuery.CREATE_PAGE] = queriesProps.getProperty("create-page")
-        sqlQueries[SqlQuery.SAVE_PAGE] = queriesProps.getProperty("save-page")
-        sqlQueries[SqlQuery.DELETE_PAGE] = queriesProps.getProperty("delete-page")
-        sqlQueries[SqlQuery.OPA_PAGE] = queriesProps.getProperty("delete-page")
-        return sqlQueries
+        fun prop(key: String) = queriesProps.getProperty(key)
+        return hashMapOf(
+                (SqlQuery.CREATE_PAGES_TABLE to prop("create-pages-table")),
+                (SqlQuery.ALL_PAGES to prop( "all-pages")),
+                (SqlQuery.GET_PAGE to prop("get-page")),
+                (SqlQuery.CREATE_PAGE to prop("create-page")),
+                (SqlQuery.SAVE_PAGE to prop("save-page")),
+                (SqlQuery.DELETE_PAGE to prop("delete-page")),
+                (SqlQuery.GET_PAGE_BY_ID to prop("get-page-by-id")),
+                (SqlQuery.ALL_PAGES_DATA to prop("all-pages-data"))
+        )
     }
 
     companion object {

@@ -9,16 +9,17 @@ import io.vertx.core.json.JsonObject
 import io.vertx.ext.jdbc.JDBCClient
 import org.slf4j.LoggerFactory
 import java.util.*
+import com.sun.xml.internal.ws.spi.db.BindingContextFactory.LOGGER
+
+
+
 
 internal class WikiDatabaseServiceImpl(
         private val dbClient: JDBCClient,
         private val sqlQueries: HashMap<SqlQuery, String>,
         private val readyHandler: Handler<AsyncResult<WikiDatabaseService>>) : WikiDatabaseService {
 
-    override fun opaPage(id: Int, resultHandler: Handler<AsyncResult<Void>>): WikiDatabaseService {
-        resultHandler.handle(Future.succeededFuture())
-        return this
-    }
+
 
     init {
         dbClient.getConnection { ar ->
@@ -38,6 +39,40 @@ internal class WikiDatabaseServiceImpl(
                 }
             }
         }
+    }
+
+    override fun fetchPageById(id: Int, resultHandler: Handler<AsyncResult<JsonObject>>): WikiDatabaseService {
+        dbClient.queryWithParams(sqlQueries[SqlQuery.GET_PAGE_BY_ID], JsonArray().add(id)) { res ->
+            if (res.succeeded()) {
+                if (res.result().numRows > 0) {
+                    val result = res.result().rows[0]
+                    resultHandler.handle(Future.succeededFuture(JsonObject()
+                            .put("found", true)
+                            .put("id", result.getInteger("ID"))
+                            .put("name", result.getString("NAME"))
+                            .put("content", result.getString("CONTENT"))))
+                } else {
+                    resultHandler.handle(Future.succeededFuture(
+                            JsonObject().put("found", false)))
+                }
+            } else {
+                LOGGER.error("Database query error", res.cause())
+                resultHandler.handle(Future.failedFuture(res.cause()))
+            }
+        }
+        return this
+    }
+
+    override fun fetchAllPagesData(resultHandler: Handler<AsyncResult<List<JsonObject>>>): WikiDatabaseService {
+        dbClient.query(sqlQueries[SqlQuery.ALL_PAGES_DATA]) { queryResult ->
+            if (queryResult.succeeded()) {
+                resultHandler.handle(Future.succeededFuture(queryResult.result().rows))
+            } else {
+                LOGGER.error("Database query error", queryResult.cause())
+                resultHandler.handle(Future.failedFuture(queryResult.cause()))
+            }
+        }
+        return this
     }
 
     override fun fetchAllPages(resultHandler: Handler<AsyncResult<JsonArray>>): WikiDatabaseService {

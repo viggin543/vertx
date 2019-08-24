@@ -7,6 +7,7 @@ import io.vertx.kotlin.ext.sql.getConnectionAwait
 import vertxtutorial.step3.database.WikiDatabaseVerticle
 
 
+
 suspend fun dbClientForTest(conf: JsonObject, vertx: Vertx): JDBCClient {
     val client = JDBCClient.createShared(vertx,
             JsonObject().put("url", conf.getString(WikiDatabaseVerticle.CONFIG_WIKIDB_JDBC_URL, "jdbc:hsqldb:file:db/wiki"))

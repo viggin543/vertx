@@ -9,6 +9,10 @@ import vertxtutorial.step3.MainVerticle
 
 
 val logger = LoggerFactory.getLogger("main")
+
+
+
+
 suspend fun main(args: Array<String>) {
     val vertx = vertx()
     val retriever = ConfigRetriever.create(vertx)

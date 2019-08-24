@@ -20,6 +20,8 @@ import io.vertx.core.json.JsonArray
 import io.vertx.ext.unit.Async
 import io.vertx.ext.web.client.HttpResponse
 import org.junit.Test
+import vertxtutorial.config.DatabaseConstants.Companion.CONFIG_WIKIDB_JDBC_MAX_POOL_SIZE
+import vertxtutorial.config.DatabaseConstants.Companion.CONFIG_WIKIDB_JDBC_URL
 
 
 @RunWith(VertxUnitRunner::class)
@@ -33,8 +35,8 @@ class ApiTest {
         vertx = Vertx.vertx()
 
         val dbConf = JsonObject()
-                .put(WikiDatabaseVerticle.CONFIG_WIKIDB_JDBC_URL, "jdbc:hsqldb:mem:testdb;shutdown=true")
-                .put(WikiDatabaseVerticle.CONFIG_WIKIDB_JDBC_MAX_POOL_SIZE, 4)
+                .put(CONFIG_WIKIDB_JDBC_URL, "jdbc:hsqldb:mem:testdb;shutdown=true")
+                .put(CONFIG_WIKIDB_JDBC_MAX_POOL_SIZE, 4)
 
         runBlocking {
             val client = dbClientForTest(dbConf, vertx)

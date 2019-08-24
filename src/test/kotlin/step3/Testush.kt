@@ -9,13 +9,20 @@ import io.vertx.ext.unit.TestContext
 import io.vertx.ext.unit.junit.VertxUnitRunner
 import io.vertx.ext.web.client.HttpResponse
 import io.vertx.ext.web.client.WebClient
+import io.vertx.kotlin.core.deployVerticleAwait
 import io.vertx.kotlin.coroutines.awaitResult
 import kotlinx.coroutines.runBlocking
 import org.junit.After
 import org.junit.Before
 import org.junit.Test
 import org.junit.runner.RunWith
+import vertxtutorial.config.DatabaseConstants.Companion.CONFIG_WIKIDB_JDBC_MAX_POOL_SIZE
+import vertxtutorial.config.DatabaseConstants.Companion.CONFIG_WIKIDB_JDBC_URL
+import vertxtutorial.config.DatabaseConstants.Companion.CONFIG_WIKIDB_QUEUE
 import vertxtutorial.step3.database.*
+import vertxtutorial.step3.http.AuthInitializerVerticle
+
+
 
 
 @RunWith(VertxUnitRunner::class)
@@ -31,15 +38,16 @@ class Testush {
         vertx = Vertx.vertx()
 
         val conf = JsonObject()
-                .put(WikiDatabaseVerticle.CONFIG_WIKIDB_JDBC_URL, "jdbc:hsqldb:mem:db?shutdown=true")
-                .put(WikiDatabaseVerticle.CONFIG_WIKIDB_JDBC_MAX_POOL_SIZE, 30)
+                .put(CONFIG_WIKIDB_JDBC_URL, "jdbc:hsqldb:mem:db?shutdown=true")
+                .put(CONFIG_WIKIDB_JDBC_MAX_POOL_SIZE, 30)
 
 
         runBlocking {
             val client = dbClientForTest(conf, vertx)
             try {
-                vertx.deployVerticle(WikiDatabaseVerticle(client), DeploymentOptions().setConfig(conf))
-                service = WikiDatabaseServiceFactory.createProxy(vertx, WikiDatabaseVerticle.CONFIG_WIKIDB_QUEUE)
+                vertx.deployVerticleAwait(AuthInitializerVerticle(), DeploymentOptions().setConfig(conf))
+                vertx.deployVerticleAwait(WikiDatabaseVerticle(client), DeploymentOptions().setConfig(conf))
+                service = WikiDatabaseServiceFactory.createProxy(vertx, CONFIG_WIKIDB_QUEUE)
             } catch (e: Throwable) {
                 e.printStackTrace()
                 context.fail(e)

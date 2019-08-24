@@ -5,6 +5,7 @@ import io.vertx.core.Handler
 import io.vertx.ext.jdbc.JDBCClient
 import io.vertx.kotlin.coroutines.CoroutineVerticle
 import io.vertx.serviceproxy.ServiceBinder
+import vertxtutorial.config.DatabaseConstants.Companion.CONFIG_WIKIDB_QUEUE
 import java.io.IOException
 import java.util.*
 
@@ -39,12 +40,5 @@ class WikiDatabaseVerticle(private val dbClient: JDBCClient) : CoroutineVerticle
                 (SqlQuery.GET_PAGE_BY_ID to prop("get-page-by-id")),
                 (SqlQuery.ALL_PAGES_DATA to prop("all-pages-data"))
         )
-    }
-
-    companion object {
-        const val CONFIG_WIKIDB_JDBC_URL = "wikidb.jdbc.url"
-        const val CONFIG_WIKIDB_JDBC_DRIVER_CLASS = "wikidb.jdbc.driver_class"
-        const val CONFIG_WIKIDB_JDBC_MAX_POOL_SIZE = "wikidb.jdbc.max_pool_size"
-        const val CONFIG_WIKIDB_QUEUE = "wikidb.queue"
     }
 }

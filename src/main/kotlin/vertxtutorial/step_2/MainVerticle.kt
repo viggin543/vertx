@@ -19,7 +19,7 @@ class MainVerticle : AbstractVerticle() {
         dbVerticleDeployment.future().compose {
             val httpVerticleDeployment = Promise.promise<String>()
             vertx.deployVerticle(
-                    httpVerticle::class.java,
+                    HttpVerticle::class.java,
                     DeploymentOptions().setInstances(2),
                     httpVerticleDeployment)
 

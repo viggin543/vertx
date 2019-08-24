@@ -7,6 +7,7 @@ import io.vertx.core.json.JsonArray
 import io.vertx.core.json.JsonObject
 import io.vertx.core.logging.LoggerFactory
 import io.vertx.ext.jdbc.JDBCClient
+import vertxtutorial.config.DatabaseConstants.Companion.CONFIG_WIKIDB_SQL_QUERIES_RESOURCE_FILE
 import java.io.FileInputStream
 import java.io.IOException
 import java.io.InputStream
@@ -16,12 +17,6 @@ import java.util.stream.Collectors
 
 class DbVerticle : AbstractVerticle() {
 
-    val CONFIG_WIKIDB_JDBC_URL = "wikidb.jdbc.url"
-    val CONFIG_WIKIDB_JDBC_DRIVER_CLASS = "wikidb.jdbc.driver_class"
-    val CONFIG_WIKIDB_JDBC_MAX_POOL_SIZE = "wikidb.jdbc.max_pool_size"
-    val CONFIG_WIKIDB_SQL_QUERIES_RESOURCE_FILE = "wikidb.sqlqueries.resource.file"
-
-    val CONFIG_WIKIDB_QUEUE = "wikidb.queue"
 
     private val LOGGER = LoggerFactory.getLogger(this::class.java.simpleName)
 
@@ -44,17 +39,15 @@ class DbVerticle : AbstractVerticle() {
    */
         loadSqlQueries()
         dbClient = JDBCClient.createShared(vertx, JsonObject()
-                .put("url", config().getString(CONFIG_WIKIDB_JDBC_URL, "jdbc:hsqldb:file:db/wiki"))
-                .put("driver_class", config().getString(CONFIG_WIKIDB_JDBC_DRIVER_CLASS, "org.hsqldb.jdbcDriver"))
-                .put("max_pool_size", config().getInteger(CONFIG_WIKIDB_JDBC_MAX_POOL_SIZE, 30)))
+                .put("url", "jdbc:hsqldb:file:db/wiki")
+                .put("driver_class", "org.hsqldb.jdbcDriver")
+                .put("max_pool_size", 30))
 
 
         dbClient!!.query(sqlQueries[SqlQuery.CREATE_PAGES_TABLE]) { res ->
             when {
                 res.succeeded() -> {
-                    vertx.eventBus().consumer(config().getString(
-                            CONFIG_WIKIDB_QUEUE,
-                            "wikidb.queue"),
+                    vertx.eventBus().consumer("wikidb.queue",
                             this::onMessage
                     )
                     promise.complete()

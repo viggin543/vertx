@@ -14,17 +14,19 @@ val logger = LoggerFactory.getLogger("main")
 
 
 suspend fun main(args: Array<String>) {
-    val vertx = vertx()
-    val retriever = ConfigRetriever.create(vertx)
-    val result= retriever.getConfigAwait()
-    println("reading config json from default path")
-    println(result.getString("FOO"))
-    logger.info("so it begins...")
-    logger.info(args.contentDeepToString())
-    try {
-        vertx.deployVerticleAwait(MainVerticle())
-    } catch (t: Throwable) {
-        t.printStackTrace()
+    with(vertx()){
+        val retriever = ConfigRetriever.create(this)
+        val result= retriever.getConfigAwait()
+        println("reading config json from default path")
+        println(result.getString("FOO"))
+        logger.info("so it begins...")
+        logger.info(args.contentDeepToString())
+        try {
+            deployVerticleAwait(MainVerticle())
+        } catch (t: Throwable) {
+            t.printStackTrace()
+        }
     }
+
 }
 

@@ -10,18 +10,17 @@ import io.vertx.ext.web.Router
 import io.vertx.ext.web.RoutingContext
 import io.vertx.ext.web.handler.BodyHandler
 import io.vertx.ext.web.templ.freemarker.FreeMarkerTemplateEngine
+import vertxtutorial.config.DatabaseConstants.Companion.CONFIG_WIKIDB_QUEUE
 import java.util.*
 
 
-class httpVerticle : AbstractVerticle() {
-    private val LOGGER = LoggerFactory.getLogger(httpVerticle::class.java)
+class HttpVerticle : AbstractVerticle() {
+    private val LOGGER = LoggerFactory.getLogger(HttpVerticle::class.simpleName)
 
-    val CONFIG_HTTP_SERVER_PORT = "http.server.port"
-    val CONFIG_WIKIDB_QUEUE = "wikidb.queue"
+    private lateinit var wikiDbQueue : String
+    private val port = "http.server.port"
 
-    private var wikiDbQueue = "wikidb.queue"
-
-    private var templateEngine: FreeMarkerTemplateEngine? = null
+    private lateinit var templateEngine: FreeMarkerTemplateEngine
 
 
     @Throws(Exception::class)
@@ -39,7 +38,7 @@ class httpVerticle : AbstractVerticle() {
 
         templateEngine = FreeMarkerTemplateEngine.create(vertx)
 
-        val portNumber = config().getInteger(CONFIG_HTTP_SERVER_PORT, 8080)!!
+        val portNumber = config().getInteger(port, 8080)!!
         vertx.createHttpServer()
                 .requestHandler(router)
                 .listen(portNumber) { ar ->

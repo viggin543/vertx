@@ -15,12 +15,14 @@ import io.vertx.ext.web.templ.freemarker.FreeMarkerTemplateEngine
 import io.vertx.kotlin.config.getConfigAwait
 import io.vertx.kotlin.core.http.listenAwait
 import io.vertx.kotlin.coroutines.CoroutineVerticle
+import io.vertx.kotlin.ext.auth.isAuthorizedAwait
 import io.vertx.kotlin.ext.web.client.sendJsonObjectAwait
+import io.vertx.kotlin.ext.web.common.template.renderAwait
 import vertxtutorial.step3.database.*
 import java.util.*
 
 
-class HttpServerVerticle : CoroutineVerticle() , CoroutineHandler {
+class HttpServerVerticle : CoroutineVerticle(), CoroutineHandler {
 
     private lateinit var dbService: WikiDatabaseService
     private lateinit var templateEngine: FreeMarkerTemplateEngine
@@ -43,13 +45,17 @@ class HttpServerVerticle : CoroutineVerticle() , CoroutineHandler {
 
         val router = Router.router(vertx).apply {
             val self = this@HttpServerVerticle
+
+            /* question, if we deploy two of these verticles. do we create two auth handlers ? */
+            setupAuthentication(vertx, templateEngine)
+
             get("/").coroutineHandler(self::indexHandler)
             get("/wiki/:page").coroutineHandler(self::pageRenderingHandler)
             post().handler(BodyHandler.create())
-            post("/save").coroutineHandler(self::pageUpdateHandler)
-            post("/create").handler(self::pageCreateHandler)
-            post("/delete").coroutineHandler(self::pageDeletionHandler)
-            get("/backup").coroutineHandler(self::backupHandler)
+            post("/action/save").coroutineHandler(self::pageUpdateHandler)
+            post("/action/create").handler(self::pageCreateHandler)
+            get("/action/backup").coroutineHandler(self::backupHandler)
+            post("/action/delete").coroutineHandler(self::pageDeletionHandler)
         }
 
         with(Router.router(vertx)) {
@@ -57,10 +63,10 @@ class HttpServerVerticle : CoroutineVerticle() , CoroutineHandler {
             get("/pages").coroutineHandler(api::apiRoot)
             get("/pages/:id").coroutineHandler(api::apiGetPage)
             post().handler(BodyHandler.create())
-            post("/pages").coroutineHandler( api::apiCreatePage)
+            post("/pages").coroutineHandler(api::apiCreatePage)
             put().handler(BodyHandler.create())
-            put("/pages/:id").coroutineHandler( api::apiUpdatePage)
-            delete("/pages/:id").coroutineHandler( api::apiDeletePage)
+            put("/pages/:id").coroutineHandler(api::apiUpdatePage)
+            delete("/pages/:id").coroutineHandler(api::apiDeletePage)
             router.mountSubRouter("/api", this)
         }
 
@@ -68,6 +74,7 @@ class HttpServerVerticle : CoroutineVerticle() , CoroutineHandler {
                 .requestHandler(router)
                 .listenAwait(config.getInteger(CONFIG_HTTP_SERVER_PORT, 8080))
     }
+
 
 
     private suspend fun backupHandler(context: RoutingContext) {
@@ -111,16 +118,14 @@ class HttpServerVerticle : CoroutineVerticle() , CoroutineHandler {
 
     private suspend fun indexHandler(context: RoutingContext) {
         val res = dbService.fetchAllPagesAwait()
+        val canCreatePage = context.user().isAuthorizedAwait("create")
         context.put("title", "Wiki home")
         context.put("pages", res.list)
-        templateEngine.render(context.data(), "templates/index.ftl") { ar ->
-            if (ar.succeeded()) {
-                context.response().putHeader("Content-Type", "text/html")
-                context.response().end(ar.result())
-            } else {
-                context.fail(ar.cause())
-            }
-        }
+        context.put("canCreatePage", canCreatePage)
+        context.put("username", context.user().principal().getString("username"))
+        val page = templateEngine.renderAwait(context.data(), "templates/index.ftl")
+        context.response().putHeader("Content-Type", "text/html")
+        context.response().end(page)
     }
 
     private suspend fun pageRenderingHandler(context: RoutingContext) {
@@ -178,10 +183,17 @@ class HttpServerVerticle : CoroutineVerticle() , CoroutineHandler {
     }
 
     private suspend fun pageDeletionHandler(context: RoutingContext) {
-        dbService.deletePageAwait(Integer.valueOf(context.request().getParam("id")))
-        context.response().statusCode = 303
-        context.response().putHeader("Location", "/")
-        context.response().end()
+        val canDelete = context.user().isAuthorizedAwait("delete")
+        if(canDelete) {
+            dbService.deletePageAwait(Integer.valueOf(context.request().getParam("id")))
+            context.response()
+                    .setStatusCode(303)
+                    .putHeader("Location", "/")
+                    .end()
+        } else {
+            context.response().setStatusCode(403).end()
+        }
+
     }
 
 }

@@ -53,7 +53,7 @@ class Testush {
                 context.fail(e)
             }
             println("finished test setup")
-            println("testing pull request")
+            println("updated pull request")
         }
     }
 

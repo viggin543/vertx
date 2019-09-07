@@ -70,9 +70,11 @@ class HttpServerVerticle : CoroutineVerticle(), CoroutineHandler {
             router.mountSubRouter("/api", this)
         }
 
+        val port = config.getInteger(CONFIG_HTTP_SERVER_PORT, 8080)
+        println("app listening on port $port")
         vertx.createHttpServer()
                 .requestHandler(router)
-                .listenAwait(config.getInteger(CONFIG_HTTP_SERVER_PORT, 8080))
+                .listenAwait(port)
     }
 
 
@@ -117,6 +119,7 @@ class HttpServerVerticle : CoroutineVerticle(), CoroutineHandler {
     }
 
     private suspend fun indexHandler(context: RoutingContext) {
+        LOGGER.info("attempting to log mdc context as json")
         val res = dbService.fetchAllPagesAwait()
         val canCreatePage = context.user().isAuthorizedAwait("create")
         context.put("title", "Wiki home")

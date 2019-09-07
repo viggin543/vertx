@@ -1,0 +1,26 @@
+Configuration:
+  name: Default
+  Appenders:
+    Console:
+      - name: json
+        target: SYSTEM_OUT
+        JsonLayout:
+          compact: true
+          complete: false
+          eventEol: true
+          stacktraceAsString: true
+          properties: true
+      - name: text
+        target: SYSTEM_OUT
+        PatternLayout:
+          pattern: "%date{ISO8601}{GMT+0} | %-5level | %25.25thread | %logger | %msg%n"
+  Loggers:
+    Root:
+      level: "${env:ROOT_LOG_LEVEL:-info}"
+      AppenderRef:
+        - ref: "${env:LOG_FORMAT:-json}"
+    Logger:
+      - name: com.tg
+        level: "${env:TG_LOG_LEVEL:-info}"
+      - name: org.jooq
+        level: error

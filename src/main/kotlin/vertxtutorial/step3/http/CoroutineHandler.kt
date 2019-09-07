@@ -5,24 +5,36 @@ import io.vertx.core.json.JsonObject
 import io.vertx.ext.web.Route
 import io.vertx.ext.web.RoutingContext
 import io.vertx.kotlin.coroutines.CoroutineVerticle
+import kotlinx.coroutines.slf4j.MDCContext
 import io.vertx.kotlin.coroutines.dispatcher
 import kotlinx.coroutines.CoroutineScope
+import kotlinx.coroutines.GlobalScope
 import kotlinx.coroutines.launch
+import kotlinx.coroutines.withContext
+import org.slf4j.MDC
 
 
 interface CoroutineHandler: CoroutineScope {
 
 
 
-    fun Route.coroutineHandler(fn: suspend (RoutingContext) -> Unit) {
-        handler { ctx ->
-            launch(ctx.vertx().dispatcher()) {
+    fun Route.coroutineHandler(fn: suspend (RoutingContext) -> Unit): Route = handler { ctx ->
+        GlobalScope.launch(ctx.vertx().dispatcher()) {
+            val mdc = MDC.getCopyOfContextMap()
+            mdc["headers"] = requestHeadersToJson(ctx).encode()
+            withContext(MDCContext(mdc)) {
                 try {
                     fn(ctx)
                 } catch (e: Exception) {
                     handleError(ctx,e)
                 }
             }
+        }
+    }
+
+    private fun requestHeadersToJson(ctx: RoutingContext) = JsonObject().apply {
+        ctx.request()?.headers()?.entries()?.forEach {
+            this.put(it.key, it.value)
         }
     }
 

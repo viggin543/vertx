@@ -5,15 +5,14 @@ import io.vertx.core.json.JsonObject
 import io.vertx.core.logging.LoggerFactory
 import io.vertx.ext.web.RoutingContext
 import io.vertx.kotlin.coroutines.CoroutineVerticle
+import mu.KLogging
 import vertxtutorial.step3.database.*
 import java.util.*
 
 
 class Api( val dbService: WikiDatabaseService) : CoroutineVerticle() {
 
-
-
-     val LOGGER = LoggerFactory.getLogger(HttpServerVerticle::class.java.simpleName)
+    companion object : KLogging()
 
      suspend fun apiCreatePage(context: RoutingContext) {
         val page = context.bodyAsJson
@@ -53,7 +52,7 @@ class Api( val dbService: WikiDatabaseService) : CoroutineVerticle() {
 
      fun validateJsonPageDocument(context: RoutingContext, page: JsonObject, vararg expectedKeys: String): Boolean {
         if (!Arrays.stream(expectedKeys).allMatch { page.containsKey(it) }) {
-            LOGGER.error("Bad page creation JSON payload: " + page.encodePrettily() + " from " + context.request().remoteAddress())
+            logger.error("Bad page creation JSON payload: " + page.encodePrettily() + " from " + context.request().remoteAddress())
             context.response().statusCode = 400
             context.response().putHeader("Content-Type", "application/json")
             context.response().end(JsonObject()
@@ -89,6 +88,7 @@ class Api( val dbService: WikiDatabaseService) : CoroutineVerticle() {
 
      suspend fun apiRoot(context: RoutingContext) {
         val pages = dbService.fetchAllPagesDataAwait()
+         logger.info("attempting to log mdc context as json")
         val response = JsonObject()
                 .put("success", true)
                 .put("pages", pages.map {
@@ -96,11 +96,11 @@ class Api( val dbService: WikiDatabaseService) : CoroutineVerticle() {
                             .put("id", it.getInteger("ID"))
                             .put("name", it.getString("NAME"))
                 })
-        context.response().statusCode = 200
-        context.response().putHeader("Content-Type", "application/json")
-        context.response().end(response.encode())
-
-
+        with(context.response()) {
+            statusCode = 200
+            putHeader("Content-Type", "application/json")
+            end(response.encode())
+        }
     }
 
 
